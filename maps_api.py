@@ -4,14 +4,22 @@ import requests
 import os
 from PIL import Image
 
-map_request = "http://static-maps.yandex.ru/1.x/?ll=133.316901,-27.543700&spn=150,0.002&l=sat"
-response = requests.get(map_request)
 
-if not response:
-    print("Ошибка выполнения запроса:")
-    print(map_request)
-    print("Http статус:", response.status_code, "(", response.reason, ")")
-    sys.exit(1)
+def response_get():
+    map_request = "http://static-maps.yandex.ru/1.x/"
+    params = {
+        "ll": ",".join([str(lon), str(lat)]),
+        "spn": ",".join([str(delta), str(delta)]),
+        "l": "sat"
+    }
+    response = requests.get(map_request, params=params)
+    if not response:
+        print("Ошибка выполнения запроса:")
+        print(map_request)
+        print("Http статус:", response.status_code, "(", response.reason, ")")
+        sys.exit(1)
+    return response
+
 
 def pil_image_to_surface(pil_image):
     mode, size, data = pil_image.mode, pil_image.size, pil_image.tobytes()
@@ -64,35 +72,45 @@ if __name__ == "__main__":
     pygame.init()
     width, height = 1200, 800
     screen = pygame.display.set_mode((width, height), pygame.RESIZABLE)
+    lon = 133
+    lat = -27
+    delta = 65
     map_file = "map.png"
+    responser = response_get()
     with open(map_file, "wb") as file:
-        file.write(response.content)
+        file.write(responser.content)
     pil_image = Image.open(map_file)
     pil_image = pil_image.resize((width, height))
     pygame_image = pil_image_to_surface(pil_image.convert('RGBA'))
+
     pygame.display.set_caption("Я карта")
     objects = []
     fps = 60
     clock = pygame.time.Clock()
-    Button(width *  0.8, height * 0.008, 'Nothing', nothing)
-    Button(width *  0.9, height * 0.008, 'Yet', yet)
+    Button(width * 0.8, height * 0.008, 'Nothing', nothing)
+    Button(width * 0.9, height * 0.008, 'Yet', yet)
     running = True
     while running:
+        keys = pygame.key.get_pressed()
         screen.fill((0, 0, 0))
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
+                os.remove(map_file)
                 pygame.quit()
                 sys.exit()
-            if event.type == pygame.KEYDOWN:
-                pass
-        screen.blit(pygame_image, (0, 0))
+        if keys[pygame.K_1]:
+            if delta > 10:
+                delta -= 10
+                responser = response_get()
+                with open(map_file, "wb") as file:
+                    file.write(responser.content)
         width, height = pygame.display.get_surface().get_size()
         pil_image = Image.open(map_file)
         pil_image = pil_image.resize((width, height))
         pygame_image = pil_image_to_surface(pil_image.convert('RGBA'))
+        screen.blit(pygame_image, (0, 0))
         for object in objects:
             object.process()
         pygame.display.flip()
         clock.tick(fps)
-    os.remove(map_file)
 
